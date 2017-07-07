@@ -6,17 +6,22 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayList;
 
 /**
  * Created by juexingzhe on 2017/6/28.
  */
 
-public class TabLinearLayout extends LinearLayout{
+public class TabLinearLayout extends LinearLayout {
 
-    private TabAdapter<String> mTabAdapter;
+    private static final int MAX_ITEM_COUNT = 5;
+
+    private TabAdapter<TabBean> mTabAdapter;
+
+    private ArrayList<LinearLayout> mContainer;
 
     public TabLinearLayout(Context context) {
         super(context);
@@ -39,8 +44,9 @@ public class TabLinearLayout extends LinearLayout{
         init();
     }
 
-    private void init(){
+    private void init() {
         this.setOrientation(HORIZONTAL);
+        mContainer = new ArrayList<>();
     }
 
     private DataSetObserver mTabDataSetObserver = new DataSetObserver() {
@@ -48,7 +54,6 @@ public class TabLinearLayout extends LinearLayout{
         public void onChanged() {
             super.onChanged();
             tabOnChanged();
-
         }
 
         @Override
@@ -59,64 +64,46 @@ public class TabLinearLayout extends LinearLayout{
     };
 
 
-    public void setTabAdapter(TabAdapter mTabAdapter) {
-        this.mTabAdapter = mTabAdapter;
+    public void setTabAdapter(TabAdapter tabAdapter) {
+        this.mTabAdapter = tabAdapter;
         removeAllViews();
         mTabAdapter.registerObserver(mTabDataSetObserver);
-        int count = mTabAdapter.getCount();
-        View view;
-        for (int i = 0; i < count; i++){
-            view = mTabAdapter.getView(this, i);
-            addView(view);
-        }
-
+        mTabAdapter.notifyChanged();
     }
 
-    private void tabOnChanged(){
-        int childCount = getChildCount();
+    private void tabOnChanged() {
+        removeAllViews();
+        mContainer.clear();
         int count = mTabAdapter.getCount();
 
+        if (count > MAX_ITEM_COUNT) {
+            count = MAX_ITEM_COUNT;
+            Toast.makeText(getContext(), "最多5个Tab", Toast.LENGTH_SHORT).show();
+        }
 
-        if (childCount > count) removeViews(count, childCount -count);
+        for (int i = 0; i < count; i++) {
+            LinearLayout layout = (LinearLayout) mTabAdapter.getView(this, null, i);
+            final int finalI = i;
+            layout.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    notifyClickEvent(finalI);
+                }
+            });
+            addView(layout);
+            mContainer.add(layout);
+        }
+    }
 
-        for (int i = 0; i < count; i++){
-            if (i < childCount){
-                TextView view = (TextView)getChildAt(i);
-                view.setText(mTabAdapter.getItem(i));
-            }else {
-                TextView textView = (TextView) mTabAdapter.getView(this, i);
-                addView(textView);
+    private void notifyClickEvent(int finalI) {
+        for (int i = 0; i < mContainer.size(); i++) {
+            if (i == finalI) {
+                mContainer.get(i).getChildAt(0).setBackgroundResource(mTabAdapter.getItem(i).tabImgSourceSelected);
+                continue;
             }
-        }
-    }
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-
-
-        int width = getWidth();
-        int splitWidth = getSplitWidth(width, getChildCount());
-
-
-        int margin = (splitWidth - getChildAt(0).getWidth()) / 2;
-        for (int i =0 ; i< getChildCount(); i++){
-            ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams)getChildAt(i).getLayoutParams();
-            layoutParams.leftMargin = margin;
-            layoutParams.rightMargin = margin;
+            mContainer.get(i).getChildAt(0).setBackgroundResource(mTabAdapter.getItem(i).tabImgSourceUnSelect);
         }
 
-
     }
-
-    private int getSplitWidth(int width, int num){
-        int r = width / num;
-        // if the signs are different and modulo not zero, round down
-        if ((width ^ num) < 0 && (r * num != width)) {
-            r--;
-        }
-        return r;
-    }
-
 
 }
